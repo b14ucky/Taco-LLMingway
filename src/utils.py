@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 from torch import Tensor
+from pathlib import Path
+from logging import Logger
 from torch.utils.data import TensorDataset
 
 
@@ -42,3 +44,31 @@ def get_dataset(*tensors: Tensor) -> TensorDataset:
         A TensorDataset containing the provided tensors.
     """
     return TensorDataset(*tensors)
+
+
+from pathlib import Path
+
+
+def load_dataset_from_txt(path: Path, logger: Logger | None = None) -> str | None:
+    """
+    Safely loads the content of a text file into a single string.
+
+    Args:
+        path: Path object pointing to the text file to read.
+        logger: Optional Logger instance for logging errors. If provided,
+                any exceptions will be logged.
+
+    Returns:
+        The full content of the file as a string if successful, otherwise None.
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as file:
+            return file.read()
+    except FileNotFoundError:
+        if logger:
+            logger.error(f"File not found: {path}")
+        return None
+    except Exception as e:
+        if logger:
+            logger.exception(f"Failed to read file {path}: {e}")
+        return None
