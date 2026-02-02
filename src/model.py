@@ -54,3 +54,46 @@ class Attention(nn.Module):
         attn_weights = self.softmax(scores)
 
         return self.dropout(attn_weights) @ v
+
+
+class MultiHeadAttention(nn.Module):
+    """
+    Multi-head self-attention mechanism that combines multiple single-head
+    attentions and projects the concatenated output back to the embedding dimension.
+    """
+
+    def __init__(self, embed_dim: int, n_heads: int, dropout: float = 0.2) -> None:
+        """
+        Initializes the MultiHeadAttention module.
+
+        Args:
+            embed_dim: Dimensionality of the input embeddings.
+            n_heads: Number of attention heads. Must divide embed_dim evenly.
+            dropout: Dropout probability applied to attention weights in each head. Default is 0.2.
+        """
+        super().__init__()
+
+        assert embed_dim % n_heads == 0, "embed_dim should be divisible by n_heads"
+
+        head_dim = embed_dim // n_heads
+        self.attention = nn.ModuleList(
+            modules=[Attention(embed_dim, head_dim, dropout) for _ in range(n_heads)]
+        )
+        self.linear = nn.Linear(in_features=embed_dim, out_features=embed_dim)
+
+    def forward(self, x: Tensor, mask: Tensor | None = None) -> Tensor:
+        """
+        Computes multi-head self-attention on the input tensor, applying the same mask to all heads.
+
+        Args:
+            x: Input tensor of shape (batch_size, seq_len, embed_dim).
+            mask: Optional mask tensor of shape (batch_size, seq_len, seq_len)
+                where 0 indicates positions to mask (ignored) and 1 indicates
+                valid positions. Default is None.
+
+        Returns:
+            Tensor of shape (batch_size, seq_len, embed_dim) containing
+            the multi-head attended output after concatenation and linear projection.
+        """
+        x = torch.cat([attention(x, mask) for attention in self.attention], dim=-1)
+        return self.linear(x)
