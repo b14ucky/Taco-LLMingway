@@ -22,6 +22,15 @@ class Tokenizer:
         self._vocab_encode = self._create_vocab(dataset)
         self._vocab_decode = {v: k for k, v in self._vocab_encode.items()}
 
+    def __len__(self) -> int:
+        """
+        Returns the size of the vocabulary as integer.
+
+        Returns:
+            Size of the vocabulary (int).
+        """
+        return len(self._vocab_encode)
+
     def encode(self, text: str) -> list[int]:
         """
         Converts text into a list of token indices.
