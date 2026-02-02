@@ -157,9 +157,10 @@ class Decoder(nn.Module):
 
 class GPT(nn.Module):
     """
-    GPT-style causal language model composed of token embeddings,
-    sinusoidal positional embeddings, stacked decoder blocks, and a
-    final linear projection to vocabulary size.
+    GPT-style causal language model using sinusoidal positional embeddings
+    and a stack of Transformer decoder blocks.
+
+    The model predicts the next token in a sequence in an autoregressive manner.
     """
 
     def __init__(
@@ -178,7 +179,7 @@ class GPT(nn.Module):
         Args:
             embed_dim: Dimensionality of token and hidden embeddings.
             vocab_size: Size of the vocabulary.
-            context_len: Maximum context (sequence) length the model can process.
+            context_len: Maximum sequence length the model can process.
             n_heads: Number of attention heads in each decoder block.
             ffn_dim: Hidden dimensionality of the feed-forward network in each decoder block.
             n_blocks: Number of stacked decoder blocks.
@@ -201,15 +202,18 @@ class GPT(nn.Module):
         """
         Forward pass of the GPT model.
 
-        The input token sequence is embedded, enriched with positional embeddings,
-        passed through stacked decoder blocks, and finally projected to vocabulary logits.
+        The input token sequence is:
+        1) Embedded into vector representations,
+        2) Enriched with positional embeddings,
+        3) Passed through stacked causal decoder blocks with a causal mask,
+        4) Normalized and projected to vocabulary logits.
 
         Args:
             x: Input tensor of token indices with shape (batch_size, seq_len).
 
         Returns:
             Tensor of shape (batch_size, seq_len, vocab_size) containing
-            token probabilities for each position in the sequence.
+            unnormalized logits for next-token prediction at each position.
         """
         _, L, _ = x.size()
         if L > self.context_len:
