@@ -46,9 +46,6 @@ def get_dataset(*tensors: Tensor) -> TensorDataset:
     return TensorDataset(*tensors)
 
 
-from pathlib import Path
-
-
 def load_dataset_from_txt(path: Path, logger: Logger | None = None) -> str | None:
     """
     Safely loads the content of a text file into a single string.
