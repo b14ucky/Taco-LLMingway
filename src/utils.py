@@ -46,26 +46,46 @@ def get_dataset(*tensors: Tensor) -> TensorDataset:
     return TensorDataset(*tensors)
 
 
-def load_dataset_from_txt(path: Path, logger: Logger | None = None) -> str | None:
+def load_dataset_from_txt(path: Path, logger: Logger) -> str | None:
     """
-    Safely loads the content of a text file into a single string.
+    Safely loads the content of a text file or a directory containing text files
+    into a single string. If a directory is provided, all `.txt` files are read
+    recursively and concatenated.
 
     Args:
-        path: Path object pointing to the text file to read.
-        logger: Optional Logger instance for logging errors. If provided,
-                any exceptions will be logged.
+        path: Path object pointing to a text file or a directory containing
+            text files.
+        logger: Logger instance used to log errors and debug information.
 
     Returns:
-        The full content of the file as a string if successful, otherwise None.
+        A single string containing the concatenated content of all read text
+        files if successful, or None if the path does not exist or an error
+        occurs while reading any file.
     """
+    if not path.exists():
+        logger.error(f"File/directory not found: {path.absolute()}")
+        return None
+
+    if path.is_dir():
+        content = ""
+
+        file_list = path.rglob("*.txt")
+        logger.debug(
+            f"Found {len(list(file_list))} files: {", ".join(str(file) for file in file_list)}"
+        )
+        for file in file_list:
+            try:
+                with open(file, "r", encoding="utf-8") as f:
+                    content += f.read()
+            except Exception as e:
+                logger.exception(f"Unable to open file {file}: {e}")
+                return None
+
+        return content
+
     try:
         with open(path, "r", encoding="utf-8") as file:
             return file.read()
-    except FileNotFoundError:
-        if logger:
-            logger.error(f"File not found: {path}")
-        return None
     except Exception as e:
-        if logger:
-            logger.exception(f"Failed to read file {path}: {e}")
+        logger.exception(f"Failed to read file {path}: {e}")
         return None
