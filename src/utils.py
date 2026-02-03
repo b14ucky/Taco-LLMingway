@@ -69,9 +69,9 @@ def load_dataset_from_txt(path: Path, logger: Logger) -> str | None:
     if path.is_dir():
         content = ""
 
-        file_list = path.rglob("*.txt")
+        file_list = list(path.rglob("*.txt"))
         logger.debug(
-            f"Found {len(list(file_list))} files: {", ".join(str(file) for file in file_list)}"
+            f"Found {len(file_list)} files: {", ".join(str(file) for file in file_list)}"
         )
         for file in file_list:
             try:
