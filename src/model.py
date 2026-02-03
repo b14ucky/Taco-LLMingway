@@ -1,8 +1,11 @@
 import torch
 import torch.nn as nn
 from torch import Tensor
-import torch.optim as optim
 from .embeddings import SinusoidalEmbeddings
+from .logger import get_logger
+
+
+logger = get_logger(__name__)
 
 
 class Attention(nn.Module):
@@ -24,8 +27,8 @@ class Attention(nn.Module):
 
         self.head_dim = head_dim
         self.q = nn.Linear(in_features=embed_dim, out_features=head_dim, bias=False)
-        self.k = nn.Linear(in_features=embed_dim, out_features=embed_dim, bias=False)
-        self.v = nn.Linear(in_features=embed_dim, out_features=embed_dim, bias=False)
+        self.k = nn.Linear(in_features=embed_dim, out_features=head_dim, bias=False)
+        self.v = nn.Linear(in_features=embed_dim, out_features=head_dim, bias=False)
         self.dropout = nn.Dropout(dropout)
 
         self.softmax = nn.Softmax(dim=-1)
@@ -215,7 +218,7 @@ class GPT(nn.Module):
             Tensor of shape (batch_size, seq_len, vocab_size) containing
             unnormalized logits for next-token prediction at each position.
         """
-        _, L, _ = x.size()
+        _, L = x.size()
         if L > self.context_len:
             x = x[:, : self.context_len]
             L = self.context_len
