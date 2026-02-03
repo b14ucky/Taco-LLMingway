@@ -28,7 +28,9 @@ def get_logger(name: str) -> logging.Logger:
     ch.setFormatter(formatter)
     logger.addHandler(ch)
 
-    fh = logging.FileHandler(f"{datetime.now()}-training.log")
+    fh = logging.FileHandler(
+        f"{datetime.now().strftime("%Y%m%d_%H%M%S")}_training.log"
+    )
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(formatter)
     logger.addHandler(fh)
