@@ -94,8 +94,8 @@ class Trainer:
             )
             loss_data.append(total_loss / len(self.dataloader))
 
-            if epoch != 0 and epoch % checkpoint_interval == 0:
-                filename = f"{datetime.now().strftime('%Y%m%d')}_{epoch}_{final_model_path.stem}.pth"
+            if epoch + 1 % checkpoint_interval == 0 and epoch != n_epochs:
+                filename = f"{datetime.now().strftime('%Y%m%d')}_{epoch + 1}_{final_model_path.stem}.pth"
                 self._save_model(checkpoint_dir / filename)
 
         self._save_model(final_model_path)
