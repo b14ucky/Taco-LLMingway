@@ -2,10 +2,6 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from .embeddings import SinusoidalEmbeddings
-from .logger import get_logger
-
-
-logger = get_logger(__name__)
 
 
 class Attention(nn.Module):
