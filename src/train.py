@@ -5,11 +5,14 @@ from logging import Logger
 import torch.optim as optim
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
+from pathlib import Path
+from datetime import datetime
 
 
 class Trainer:
     """
-    Trainer class for training a PyTorch model with logging and optional loss plotting.
+    Trainer class for training a PyTorch model with logging, checkpointing,
+    and optional loss plotting.
     """
 
     def __init__(
@@ -42,29 +45,44 @@ class Trainer:
 
         self.optimizer = optim.AdamW(self.model.parameters(), lr=lr)
 
-    def train(self, n_epochs: int, vocab_size: int, plot_loss: bool = True) -> None:
+    def train(
+        self,
+        n_epochs: int,
+        final_model_path: Path,
+        checkpoint_dir: Path,
+        plot_loss: bool = True,
+        checkpoint_path: Path | None = None,
+        checkpoint_interval: int = 10,
+    ) -> None:
         """
-        Runs training for a given number of epochs.
+        Runs training for a given number of epochs, with optional checkpointing
+        and loss visualization.
 
         Args:
             n_epochs: Number of epochs to train the model.
-            vocab_size: Size of the vocabulary (number of classes).
+            final_model_path: Path where the final model checkpoint will be saved.
+            checkpoint_dir: Directory where intermediate checkpoints will be stored.
             plot_loss: Whether to plot the loss curve after training. Default is True.
+            checkpoint_path: Optional path to a checkpoint to resume training from.
+            checkpoint_interval: Number of epochs between checkpoint saves.
 
         Returns:
             None
         """
+        if checkpoint_path is not None:
+            self._load_checkpoint(checkpoint_path)
+
         loss_data = []
-        for i in range(n_epochs):
+        for epoch in range(n_epochs):
             total_loss = 0
 
-            for X, y in tqdm(self.dataloader, desc=f"epoch {i + 1}/{n_epochs}"):
+            for X, y in tqdm(self.dataloader, desc=f"epoch {epoch + 1}/{n_epochs}"):
                 X = X.to(self.device)
                 y = y.to(self.device)
 
                 logits = self.model(X)
 
-                loss = self.criterion(logits.view(-1, vocab_size), y.view(-1))
+                loss = self.criterion(logits.view(-1, logits.size(-1)), y.view(-1))
                 total_loss += loss.item()
 
                 self.optimizer.zero_grad()
@@ -72,9 +90,15 @@ class Trainer:
                 self.optimizer.step()
 
             self.logger.info(
-                f"epoch: {i + 1} | loss: {total_loss / len(self.dataloader) :.5f}"
+                f"epoch: {epoch + 1} | loss: {total_loss / len(self.dataloader):.5f}"
             )
             loss_data.append(total_loss / len(self.dataloader))
+
+            if epoch != 0 and epoch % checkpoint_interval == 0:
+                filename = f"{datetime.now().strftime('%Y%m%d')}_{epoch}_{final_model_path.stem}.pth"
+                self._save_model(checkpoint_dir / filename)
+
+        self._save_model(final_model_path)
 
         if plot_loss:
             self._plot_loss(loss_data)
@@ -94,3 +118,56 @@ class Trainer:
         plt.xlabel("Epoch")
         plt.title("Train loss")
         plt.show()
+
+    def _save_model(self, path: Path) -> None:
+        """
+        Saves the model and optimizer state to a checkpoint file.
+
+        This method will automatically create the parent directory of `path`
+        if it does not already exist.
+
+        Args:
+            path: Filesystem path where the model checkpoint should be saved.
+
+        Returns:
+            None
+        """
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        data = {
+            "optimizer": self.optimizer.state_dict(),
+        }
+        if self.device == "cuda":
+            data["model"] = self.model.module.state_dict()
+        else:
+            data["model"] = self.model.state_dict()
+
+        torch.save(data, path)
+        self.logger.info(f"Model state saved in: {path}")
+
+    def _load_checkpoint(self, path: Path) -> None:
+        """
+        Loads model and optimizer state from a previously saved checkpoint.
+
+        The checkpoint is loaded using `map_location=self.device` to ensure
+        compatibility when moving between GPU and CPU environments.
+
+        Args:
+            path: Path to a checkpoint file created with `_save_model`.
+
+        Returns:
+            None
+        """
+        if not path.exists():
+            self.logger.error(f"File not found: {path}")
+            return None
+
+        data = torch.load(path, map_location=self.device)
+        self.optimizer.load_state_dict(data["optimizer"])
+
+        if self.device == "cuda":
+            self.model.module.load_state_dict(data["model"])
+        else:
+            self.model.load_state_dict(data["model"])
+
+        self.logger.info(f"Checkpoint: {path} successfully loaded")
