@@ -24,9 +24,11 @@ class SinusoidalEmbeddings(nn.Module):
             torch.arange(0, embed_dim, 2, dtype=torch.float32) / embed_dim
         )
 
-        self._embeddings = torch.zeros(context_len, embed_dim, requires_grad=False)
-        self._embeddings[:, 0::2] = torch.sin(position / divisor)
-        self._embeddings[:, 1::2] = torch.cos(position / divisor)
+        embeddings = torch.zeros(context_len, embed_dim, requires_grad=False)
+        embeddings[:, 0::2] = torch.sin(position / divisor)
+        embeddings[:, 1::2] = torch.cos(position / divisor)
+
+        self.register_buffer("_embeddings", embeddings)
 
     def forward(self, pos: Tensor) -> Tensor:
         """
