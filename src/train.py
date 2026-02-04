@@ -61,7 +61,7 @@ class Trainer:
         Args:
             n_epochs: Number of epochs to train the model.
             final_model_path: Path where the final model checkpoint will be saved.
-            checkpoint_dir: Directory where intermediate checkpoints will be stored.
+            checkpoint_dir: Directory where intermediate checkpoints will be saved.
             plot_loss: Whether to plot the loss curve after training. Default is True.
             checkpoint_path: Optional path to a checkpoint to resume training from.
             checkpoint_interval: Number of epochs between checkpoint saves.
