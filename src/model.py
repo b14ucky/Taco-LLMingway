@@ -194,6 +194,7 @@ class GPT(nn.Module):
         self.blocks = nn.ModuleList(
             [Decoder(embed_dim, n_heads, ffn_dim, dropout) for _ in range(n_blocks)]
         )
+        self.softmax = nn.Softmax(dim=-1)
 
         self.context_len = context_len
 
@@ -216,7 +217,7 @@ class GPT(nn.Module):
         """
         _, L = x.size()
         if L > self.context_len:
-            x = x[:, : self.context_len]
+            x = x[:, -self.context_len :]
             L = self.context_len
 
         positions = torch.arange(L).to(x.device)
@@ -228,3 +229,37 @@ class GPT(nn.Module):
             x = block(x, mask)
 
         return self.linear(self.norm(x))
+
+    def generate(self, x: Tensor, n_iters: int, temperature: float = 1.0) -> Tensor:
+        """
+        Autoregressively generates new tokens by sampling from the model.
+
+        At each iteration, the model:
+        1) Computes logits for the next token based on the current sequence,
+        2) Applies temperature-scaled softmax,
+        3) Samples a token from the resulting distribution,
+        4) Appends it to the input sequence,
+        5) Truncates the sequence to the maximum context length if necessary.
+
+        Args:
+            x: Input tensor of token indices with shape (batch_size, seq_len).
+                This serves as the initial prompt for generation.
+            n_iters: Number of tokens to generate.
+            temperature: Controls randomness of sampling.
+                Lower values make the model more deterministic, higher values
+                increase diversity. Default is 1.0.
+
+        Returns:
+            Tensor of shape (batch_size, seq_len + n_iters) containing the
+            original input sequence with generated tokens appended.
+        """
+        for _ in range(n_iters):
+            logits = self(x)[:, -1, :]
+            probs = self.softmax(logits / temperature)
+            next_token = torch.multinomial(probs, num_samples=1)
+            x = torch.cat((x, next_token), dim=-1)
+
+            if x.size(1) > self.context_len:
+                x = x[:, -self.context_len :]
+
+        return x
