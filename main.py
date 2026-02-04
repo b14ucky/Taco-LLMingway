@@ -7,7 +7,8 @@ from pathlib import Path
 from torch.utils.data import DataLoader
 
 
-DATASET_PATH = Path("all-lyrics.txt")
+DATASET_PATH = Path("data/raw")
+
 CONTEXT_LEN = 32
 EMBED_DIM = 64
 N_HEADS = 2
@@ -16,6 +17,10 @@ N_BLOCKS = 2
 DROPOUT = 1
 BATCH_SIZE = 16
 LR = 1e-3
+
+N_EPOCHS = 2
+FINAL_MODEL_PATH = Path("model/taco-llmingway.pth")
+CHECKPOINT_DIR = Path("checkpoints")
 
 logger = get_logger(__name__)
 
@@ -57,7 +62,11 @@ def main() -> None:
         lr=LR,
     )
 
-    trainer.train(n_epochs=2, vocab_size=vocab_size)
+    trainer.train(
+        n_epochs=N_EPOCHS,
+        final_model_path=FINAL_MODEL_PATH,
+        checkpoint_dir=CHECKPOINT_DIR,
+    )
 
 
 if __name__ == "__main__":
