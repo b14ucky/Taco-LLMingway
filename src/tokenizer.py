@@ -89,11 +89,14 @@ class Tokenizer:
             A dictionary mapping each token to a unique integer index.
         """
         if self._tokenization_mode == "character":
-            vocab = {token: index for index, token in enumerate(set(list(dataset)))}
+            vocab = {
+                token: index
+                for index, token in enumerate(sorted(set(list(dataset))))
+            }
         elif self._tokenization_mode == "word":
             vocab = {
                 token: index
-                for index, token in enumerate(set(list(dataset.split(" "))))
+                for index, token in enumerate(sorted(set(list(dataset.split(" ")))))
             }
         else:
             raise ValueError(f"Unknown tokenization_mode: {self._tokenization_mode}")
