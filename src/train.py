@@ -72,6 +72,8 @@ class Trainer:
         if checkpoint_path is not None:
             self._load_checkpoint(checkpoint_path)
 
+        self.model.train()
+
         loss_data = []
         for epoch in range(n_epochs):
             total_loss = 0

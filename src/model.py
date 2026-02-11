@@ -253,13 +253,15 @@ class GPT(nn.Module):
             Tensor of shape (batch_size, seq_len + n_iters) containing the
             original input sequence with generated tokens appended.
         """
-        for _ in range(n_iters):
-            logits = self(x)[:, -1, :]
-            probs = self.softmax(logits / temperature)
-            next_token = torch.multinomial(probs, num_samples=1)
-            x = torch.cat((x, next_token), dim=-1)
+        with torch.no_grad():
+            self.eval()
+            for _ in range(n_iters):
+                logits = self(x)[:, -1, :]
+                probs = self.softmax(logits / temperature)
+                next_token = torch.multinomial(probs, num_samples=1)
+                x = torch.cat((x, next_token), dim=-1)
 
-            if x.size(1) > self.context_len:
-                x = x[:, -self.context_len :]
+                if x.size(1) > self.context_len:
+                    x = x[:, -self.context_len :]
 
         return x
