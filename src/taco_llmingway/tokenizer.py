@@ -1,4 +1,7 @@
 from typing import Literal
+from pathlib import Path
+import json
+from logging import Logger
 
 
 class Tokenizer:
@@ -104,3 +107,71 @@ class Tokenizer:
         vocab["<unk>"] = len(vocab)
 
         return vocab
+
+    def save(self, path: Path, logger: Logger | None = None) -> None:
+        """
+        Saves the tokenizer configuration to a JSON file.
+
+        The saved file contains the tokenization mode and the vocabulary
+        mapping required to reconstruct the tokenizer instance.
+
+        Args:
+            path: Path to the output JSON file.
+            logger: Optional logger used to log save status information.
+
+        Returns:
+            None
+        """
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        data = {
+            "tokenization_mode": self._tokenization_mode,
+            "vocab": self._vocab_encode,
+        }
+
+        with open(path, "w", encoding="utf-8") as file:
+            json.dump(data, file, ensure_ascii=False)
+
+        if logger:
+            logger.info(f"Tokenizer saved in {path}")
+
+    @classmethod
+    def load(cls, path: Path, logger: Logger | None = None) -> "Tokenizer":
+        """
+        Loads a tokenizer instance from a JSON file.
+
+        The file must contain the tokenization mode and vocabulary mapping
+        previously saved using the `save` method.
+
+        Args:
+            path: Path to the tokenizer JSON file.
+            logger: Optional logger used to log load status information.
+
+        Returns:
+            A reconstructed Tokenizer instance.
+
+        Raises:
+            FileNotFoundError: If the specified file does not exist.
+            KeyError: If required fields are missing in the JSON file.
+        """
+        try:
+            with open(path, "r", encoding="utf-8") as file:
+                data = json.load(file)
+
+            tokenizer = cls.__new__(cls)
+            tokenizer._tokenization_mode = data["tokenization_mode"]
+            tokenizer._vocab_encode = data["vocab"]
+            tokenizer._vocab_decode = {
+                v: k for k, v in tokenizer._vocab_encode.items()
+            }
+
+            if logger:
+                logger.info(f"Succesfully loaded tokenizer from {path}")
+
+            return tokenizer
+
+        except FileNotFoundError as e:
+            if logger:
+                logger.exception(f"File {path} not found")
+
+            raise e
