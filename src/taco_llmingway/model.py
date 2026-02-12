@@ -2,6 +2,9 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from .embeddings import SinusoidalEmbeddings
+from pathlib import Path
+from logging import Logger
+import json
 
 
 class Attention(nn.Module):
@@ -265,3 +268,52 @@ class GPT(nn.Module):
                     x = x[:, -self.context_len :]
 
         return x
+
+    @classmethod
+    def load(
+        cls,
+        config_path: Path,
+        weights_path: Path,
+        device: torch.device | str = "cpu",
+        logger: Logger | None = None,
+    ) -> "GPT":
+        """
+        Loads a GPT model from a configuration file and a checkpoint file.
+
+        The configuration file must contain all arguments required to initialize
+        the GPT constructor. The checkpoint file must contain a dictionary with
+        the key "model" storing the model's state_dict.
+
+        Args:
+            config_path: Path to the JSON configuration file.
+            weights_path: Path to the checkpoint file containing model weights.
+            device: Device on which the model should be loaded
+                (e.g., "cpu", "cuda", or torch.device instance). Default is "cpu".
+            logger: Optional logger used to log loading status information.
+
+        Returns:
+            A GPT model instance with loaded weights, moved to the specified device,
+            and set to evaluation mode.
+
+        Raises:
+            FileNotFoundError: If the configuration or weights file does not exist.
+            json.JSONDecodeError: If the configuration file is not valid JSON.
+            KeyError: If the checkpoint does not contain the key "model".
+            RuntimeError: If the state_dict is incompatible with the model.
+        """
+        with open(config_path, "r", encoding="utf-8") as file:
+            config = json.load(file)
+
+        model = cls(**config).to(device)
+        if logger:
+            logger.info(f"Successfully loaded config from {config_path}")
+
+        data = torch.load(weights_path, map_location=device)
+        model.load_state_dict(data["model"])
+
+        model.eval()
+
+        if logger:
+            logger.info(f"Successfully loaded weights from {weights_path}")
+
+        return model
