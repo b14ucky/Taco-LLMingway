@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from .embeddings import SinusoidalEmbeddings
+from .tokenizer import Tokenizer
 from pathlib import Path
 from logging import Logger
 import json
@@ -268,6 +269,36 @@ class GPT(nn.Module):
                     x = x[:, -self.context_len :]
 
         return x
+
+    async def stream(
+        self, x: Tensor, n_iters: int, tokenizer: Tokenizer, temperature: float = 1.0
+    ):
+        """
+        Streams generated tokens one at a time in decoded form.
+
+        Args:
+            x: Input tensor of token indices with shape (batch_size, seq_len),
+                serving as the initial prompt.
+            n_iters: Number of tokens to generate.
+            tokenizer: Tokenizer instance used to decode token indices to strings.
+            temperature: Sampling temperature controlling randomness.
+                Default is 1.0.
+
+        Yields:
+            str: The next generated token decoded as a string.
+        """
+        with torch.no_grad():
+            self.eval()
+            for _ in range(n_iters):
+                logits = self(x)[:, -1, :]
+                probs = self.softmax(logits / temperature)
+                next_token = torch.multinomial(probs, num_samples=1)
+                x = torch.cat((x, next_token), dim=-1)
+
+                if x.size(1) > self.context_len:
+                    x = x[:, -self.context_len :]
+
+                yield tokenizer.decode([int(next_token.item())])
 
     @classmethod
     def load(
