@@ -1,7 +1,22 @@
-from typing import Literal
-from pathlib import Path
 import json
+import re
+from enum import StrEnum
 from logging import Logger
+from pathlib import Path
+from typing import Literal
+
+
+class TokenType(StrEnum):
+    """
+    Enumeration of token categories used during regex-based tokenization.
+
+    Attributes:
+        SPECIAL: Matches user-defined special tokens.
+        NORMAL: Matches standard text (characters not classified as special).
+    """
+
+    SPECIAL = "SPECIAL"
+    NORMAL = "NORMAL"
 
 
 class Tokenizer:
@@ -12,16 +27,24 @@ class Tokenizer:
     def __init__(
         self,
         dataset: str,
+        special_tokens: list[str] | None = None,
         tokenization_mode: Literal["character", "word"] = "character",
     ) -> None:
         """
-        Initializes the Tokenizer
+        Initializes the Tokenizer.
 
         Args:
             dataset: Text data from which the vocabulary will be built.
+            special_tokens: Optional list of special tokens that should be treated
+                as atomic units during tokenization.
             tokenization_mode: Determines whether tokens are characters or words.
         """
         self._tokenization_mode = tokenization_mode
+        self._special_tokens = special_tokens
+        if self._special_tokens is not None:
+            self._compiled_regex = self._compile_regex(
+                "|".join(re.escape(token) for token in self._special_tokens)
+            )
         self._vocab_encode = self._create_vocab(dataset)
         self._vocab_decode = {v: k for k, v in self._vocab_encode.items()}
 
@@ -45,10 +68,29 @@ class Tokenizer:
             A list of integer token indices corresponding to the input text.
         """
         if self._tokenization_mode == "character":
-            return [
-                self._vocab_encode.get(char, self._vocab_encode["<unk>"])
-                for char in text
-            ]
+            if self._special_tokens is not None:
+                indices: list[int] = []
+
+                for mo in self._compiled_regex.finditer(text):
+                    kind = mo.lastgroup
+                    value = mo.group()
+                    if kind == TokenType.SPECIAL:
+                        indices.append(
+                            self._vocab_encode.get(value, self._vocab_encode["<unk>"])
+                        )
+                    elif kind == TokenType.NORMAL:
+                        indices.extend(
+                            self._vocab_encode.get(char, self._vocab_encode["<unk>"])
+                            for char in value
+                        )
+
+                return indices
+
+            else:
+                return [
+                    self._vocab_encode.get(char, self._vocab_encode["<unk>"])
+                    for char in text
+                ]
         if self._tokenization_mode == "word":
             return [
                 self._vocab_encode.get(word, self._vocab_encode["<unk>"])
@@ -78,10 +120,7 @@ class Tokenizer:
 
         raise ValueError(f"Unknown tokenization_mode: {self._tokenization_mode}")
 
-    def _create_vocab(
-        self,
-        dataset: str,
-    ) -> dict[str, int]:
+    def _create_vocab(self, dataset: str) -> dict[str, int]:
         """
         Creates a vocabulary mapping tokens to integer indices.
 
@@ -92,9 +131,14 @@ class Tokenizer:
             A dictionary mapping each token to a unique integer index.
         """
         if self._tokenization_mode == "character":
+            if self._special_tokens is not None:
+                special_tokens_regex = "|".join(
+                    re.escape(token) for token in self._special_tokens
+                )
+                dataset = re.sub(special_tokens_regex, "", dataset)
+
             vocab = {
-                token: index
-                for index, token in enumerate(sorted(set(list(dataset))))
+                token: index for index, token in enumerate(sorted(set(list(dataset))))
             }
         elif self._tokenization_mode == "word":
             vocab = {
@@ -105,8 +149,31 @@ class Tokenizer:
             raise ValueError(f"Unknown tokenization_mode: {self._tokenization_mode}")
 
         vocab["<unk>"] = len(vocab)
+        if self._special_tokens is not None:
+            for token in self._special_tokens:
+                vocab[token] = len(vocab)
 
         return vocab
+
+    def _compile_regex(self, special_tokens_regex: str) -> re.Pattern:
+        """
+        Compiles a regular expression used to distinguish special tokens
+        from normal text during character-level tokenization.
+
+        Args:
+            special_tokens_regex: Regex pattern matching all special tokens.
+
+        Returns:
+            A compiled regular expression pattern with named groups
+            corresponding to TokenType values.
+        """
+        token_specification = [
+            (TokenType.SPECIAL, special_tokens_regex),
+            (TokenType.NORMAL, r"."),
+        ]
+        regex = "|".join(f"(?P<{name}>{value})" for name, value in token_specification)
+
+        return re.compile(regex, re.DOTALL)
 
     def save(self, path: Path, logger: Logger | None = None) -> None:
         """
@@ -126,6 +193,7 @@ class Tokenizer:
 
         data = {
             "tokenization_mode": self._tokenization_mode,
+            "special_tokens": self._special_tokens,
             "vocab": self._vocab_encode,
         }
 
@@ -160,10 +228,14 @@ class Tokenizer:
 
             tokenizer = cls.__new__(cls)
             tokenizer._tokenization_mode = data["tokenization_mode"]
+            tokenizer._special_tokens = data["special_tokens"]
+            if tokenizer._special_tokens is not None:
+                tokenizer._compiled_regex = tokenizer._compile_regex(
+                    "|".join(re.escape(token) for token in tokenizer._special_tokens)
+                )
+
             tokenizer._vocab_encode = data["vocab"]
-            tokenizer._vocab_decode = {
-                v: k for k, v in tokenizer._vocab_encode.items()
-            }
+            tokenizer._vocab_decode = {v: k for k, v in tokenizer._vocab_encode.items()}
 
             if logger:
                 logger.info(f"Succesfully loaded tokenizer from {path}")
