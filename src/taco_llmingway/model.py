@@ -1,11 +1,12 @@
+from logging import Logger
+from pathlib import Path
+
 import torch
 import torch.nn as nn
 from torch import Tensor
+
 from .embeddings import SinusoidalEmbeddings
 from .tokenizer import Tokenizer
-from pathlib import Path
-from logging import Logger
-import json
 
 
 class Attention(nn.Module):
@@ -303,8 +304,7 @@ class GPT(nn.Module):
     @classmethod
     def load(
         cls,
-        config_path: Path,
-        weights_path: Path,
+        path: Path,
         device: torch.device | str = "cpu",
         logger: Logger | None = None,
     ) -> "GPT":
@@ -332,19 +332,15 @@ class GPT(nn.Module):
             KeyError: If the checkpoint does not contain the key "model".
             RuntimeError: If the state_dict is incompatible with the model.
         """
-        with open(config_path, "r", encoding="utf-8") as file:
-            config = json.load(file)
+
+        data = torch.load(path, map_location=device)
+        config = data["config"]
 
         model = cls(**config).to(device)
-        if logger:
-            logger.info(f"Successfully loaded config from {config_path}")
-
-        data = torch.load(weights_path, map_location=device)
-        model.load_state_dict(data["model"])
-
+        model.load_state_dict(data["weights"])
         model.eval()
 
         if logger:
-            logger.info(f"Successfully loaded weights from {weights_path}")
+            logger.info(f"Successfully loaded weights and config from {path}")
 
         return model

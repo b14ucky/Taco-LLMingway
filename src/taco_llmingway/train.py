@@ -1,12 +1,13 @@
-import torch
-from tqdm import tqdm
-import torch.nn as nn
-from logging import Logger
-import torch.optim as optim
-import matplotlib.pyplot as plt
-from torch.utils.data import DataLoader
-from pathlib import Path
 from datetime import datetime
+from logging import Logger
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 
 class Trainer:
@@ -140,9 +141,20 @@ class Trainer:
             "optimizer": self.optimizer.state_dict(),
         }
         if self.device == "cuda":
-            data["model"] = self.model.module.state_dict()
+            model = self.model.module
         else:
-            data["model"] = self.model.state_dict()
+            model = self.model
+
+        data["weights"] = model.state_dict()
+        data["config"] = {
+            "embed_dim": model.embeddings.embedding_dim,
+            "vocab_size": model.embeddings.num_embeddings,
+            "context_len": model.context_len,
+            "n_heads": len(model.blocks[0].attention.attention),
+            "ffn_dim": model.blocks[0].FFN[0].out_features,
+            "n_blocks": len(model.blocks),
+            "dropout": model.dropout.p,
+        }
 
         torch.save(data, path)
         self.logger.info(f"Model state saved in: {path}")
@@ -168,8 +180,8 @@ class Trainer:
         self.optimizer.load_state_dict(data["optimizer"])
 
         if self.device == "cuda":
-            self.model.module.load_state_dict(data["model"])
+            self.model.module.load_state_dict(data["weights"])
         else:
-            self.model.load_state_dict(data["model"])
+            self.model.load_state_dict(data["weights"])
 
         self.logger.info(f"Checkpoint: {path} successfully loaded")
