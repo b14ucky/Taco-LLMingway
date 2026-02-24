@@ -309,27 +309,27 @@ class GPT(nn.Module):
         logger: Logger | None = None,
     ) -> "GPT":
         """
-        Loads a GPT model from a configuration file and a checkpoint file.
+        Loads a GPT model from a checkpoint file.
 
-        The configuration file must contain all arguments required to initialize
-        the GPT constructor. The checkpoint file must contain a dictionary with
-        the key "model" storing the model's state_dict.
+        The checkpoint file must contain:
+            - "config": dictionary with arguments required to initialize the GPT model,
+            - "weights": model state_dict.
 
         Args:
-            config_path: Path to the JSON configuration file.
-            weights_path: Path to the checkpoint file containing model weights.
+            path: Path to the checkpoint file created during training.
             device: Device on which the model should be loaded
-                (e.g., "cpu", "cuda", or torch.device instance). Default is "cpu".
+                (e.g., "cpu", "cuda", or torch.device instance).
+                Default is "cpu".
             logger: Optional logger used to log loading status information.
 
         Returns:
-            A GPT model instance with loaded weights, moved to the specified device,
+            GPT: Model instance initialized from the stored configuration,
+            loaded with saved weights, moved to the specified device,
             and set to evaluation mode.
 
         Raises:
-            FileNotFoundError: If the configuration or weights file does not exist.
-            json.JSONDecodeError: If the configuration file is not valid JSON.
-            KeyError: If the checkpoint does not contain the key "model".
+            FileNotFoundError: If the checkpoint file does not exist.
+            KeyError: If required keys ("config" or "weights") are missing.
             RuntimeError: If the state_dict is incompatible with the model.
         """
 
